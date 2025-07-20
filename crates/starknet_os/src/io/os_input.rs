@@ -15,6 +15,7 @@ use starknet_patricia::patricia_merkle_tree::types::SubTreeHeight;
 use starknet_types_core::felt::Felt;
 
 #[cfg_attr(feature = "deserialize", derive(serde::Deserialize))]
+#[cfg_attr(feature = "deserialize", serde(deny_unknown_fields))]
 #[derive(Debug)]
 pub struct CommitmentInfo {
     pub previous_root: HashOutput,
@@ -41,6 +42,7 @@ impl Default for CommitmentInfo {
 }
 
 #[cfg_attr(feature = "deserialize", derive(serde::Deserialize))]
+#[cfg_attr(feature = "deserialize", serde(deny_unknown_fields))]
 #[derive(Clone, Debug)]
 pub struct ContractClassComponentHashes {
     pub contract_class_version: Felt,
@@ -65,6 +67,7 @@ impl ContractClassComponentHashes {
 }
 
 #[cfg_attr(feature = "deserialize", derive(serde::Deserialize))]
+#[cfg_attr(feature = "deserialize", serde(deny_unknown_fields))]
 #[cfg_attr(any(test, feature = "testing"), derive(Default))]
 #[derive(Debug)]
 pub struct OsHints {
@@ -76,6 +79,7 @@ pub struct OsHints {
 pub type HintedClassHash = Felt;
 
 #[cfg_attr(feature = "deserialize", derive(serde::Deserialize))]
+#[cfg_attr(feature = "deserialize", serde(deny_unknown_fields))]
 #[cfg_attr(any(test, feature = "testing"), derive(Default))]
 #[derive(Debug)]
 pub struct StarknetOsInput {
@@ -89,6 +93,7 @@ pub struct StarknetOsInput {
 
 // TODO(Meshi): Remove Once the blockifier ChainInfo do not support deprecated fee token.
 #[cfg_attr(feature = "deserialize", derive(serde::Deserialize))]
+#[cfg_attr(feature = "deserialize", serde(deny_unknown_fields))]
 #[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct OsChainInfo {
     #[cfg_attr(feature = "deserialize", serde(deserialize_with = "deserialize_chain_id_from_hex"))]
@@ -131,6 +136,7 @@ pub struct OsBlockInput {
 }
 
 #[cfg_attr(feature = "deserialize", derive(serde::Deserialize))]
+#[cfg_attr(feature = "deserialize", serde(deny_unknown_fields))]
 #[cfg_attr(any(test, feature = "testing"), derive(Default))]
 #[derive(Debug)]
 pub struct OsHintsConfig {
@@ -142,6 +148,7 @@ pub struct OsHintsConfig {
 
 #[derive(Default, Debug)]
 #[cfg_attr(feature = "deserialize", derive(serde::Deserialize))]
+#[cfg_attr(feature = "deserialize", serde(deny_unknown_fields))]
 pub struct CachedStateInput {
     pub storage: HashMap<ContractAddress, HashMap<StorageKey, Felt>>,
     pub address_to_class_hash: HashMap<ContractAddress, ClassHash>,

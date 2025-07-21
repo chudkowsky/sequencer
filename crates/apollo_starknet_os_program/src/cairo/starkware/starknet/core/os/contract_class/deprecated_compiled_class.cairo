@@ -92,45 +92,45 @@ func deprecated_compiled_class_hash{hash_ptr: HashBuiltin*}(
         hash_state_ptr=hash_state_ptr, item=compiled_class.compiled_class_version
     );
 
-    // Hash external entry points.
-    let (hash_state_ptr) = hash_update_with_hashchain(
-        hash_state_ptr=hash_state_ptr,
-        data_ptr=compiled_class.external_functions,
-        data_length=compiled_class.n_external_functions * DeprecatedContractEntryPoint.SIZE,
-    );
+    // // Hash external entry points.
+    // let (hash_state_ptr) = hash_update_with_hashchain(
+    //     hash_state_ptr=hash_state_ptr,
+    //     data_ptr=compiled_class.external_functions,
+    //     data_length=compiled_class.n_external_functions * DeprecatedContractEntryPoint.SIZE,
+    // );
 
-    // Hash L1 handler entry points.
-    let (hash_state_ptr) = hash_update_with_hashchain(
-        hash_state_ptr=hash_state_ptr,
-        data_ptr=compiled_class.l1_handlers,
-        data_length=compiled_class.n_l1_handlers * DeprecatedContractEntryPoint.SIZE,
-    );
+    // // Hash L1 handler entry points.
+    // let (hash_state_ptr) = hash_update_with_hashchain(
+    //     hash_state_ptr=hash_state_ptr,
+    //     data_ptr=compiled_class.l1_handlers,
+    //     data_length=compiled_class.n_l1_handlers * DeprecatedContractEntryPoint.SIZE,
+    // );
 
-    // Hash constructor entry points.
-    let (hash_state_ptr) = hash_update_with_hashchain(
-        hash_state_ptr=hash_state_ptr,
-        data_ptr=compiled_class.constructors,
-        data_length=compiled_class.n_constructors * DeprecatedContractEntryPoint.SIZE,
-    );
+    // // Hash constructor entry points.
+    // let (hash_state_ptr) = hash_update_with_hashchain(
+    //     hash_state_ptr=hash_state_ptr,
+    //     data_ptr=compiled_class.constructors,
+    //     data_length=compiled_class.n_constructors * DeprecatedContractEntryPoint.SIZE,
+    // );
 
-    // Hash builtins.
-    let (hash_state_ptr) = hash_update_with_hashchain(
-        hash_state_ptr=hash_state_ptr,
-        data_ptr=compiled_class.builtin_list,
-        data_length=compiled_class.n_builtins,
-    );
+    // // Hash builtins.
+    // let (hash_state_ptr) = hash_update_with_hashchain(
+    //     hash_state_ptr=hash_state_ptr,
+    //     data_ptr=compiled_class.builtin_list,
+    //     data_length=compiled_class.n_builtins,
+    // );
 
     // // Hash hinted_class_hash.
     // let (hash_state_ptr) = hash_update_single(
     //     hash_state_ptr=hash_state_ptr, item=compiled_class.hinted_class_hash
     // );
 
-    // Hash bytecode.
-    let (hash_state_ptr) = hash_update_with_hashchain(
-        hash_state_ptr=hash_state_ptr,
-        data_ptr=compiled_class.bytecode_ptr,
-        data_length=compiled_class.bytecode_length,
-    );
+    // // Hash bytecode.
+    // let (hash_state_ptr) = hash_update_with_hashchain(
+    //     hash_state_ptr=hash_state_ptr,
+    //     data_ptr=compiled_class.bytecode_ptr,
+    //     data_length=compiled_class.bytecode_length,
+    // );
 
     let (hash: felt) = hash_finalize(hash_state_ptr=hash_state_ptr);
     return (hash=hash);

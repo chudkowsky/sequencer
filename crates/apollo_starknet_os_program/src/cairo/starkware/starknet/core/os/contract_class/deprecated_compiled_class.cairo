@@ -120,10 +120,10 @@ func deprecated_compiled_class_hash{hash_ptr: HashBuiltin*}(
         data_length=compiled_class.n_builtins,
     );
 
-    // Hash hinted_class_hash.
-    let (hash_state_ptr) = hash_update_single(
-        hash_state_ptr=hash_state_ptr, item=compiled_class.hinted_class_hash
-    );
+    // // Hash hinted_class_hash.
+    // let (hash_state_ptr) = hash_update_single(
+    //     hash_state_ptr=hash_state_ptr, item=compiled_class.hinted_class_hash
+    // );
 
     // Hash bytecode.
     let (hash_state_ptr) = hash_update_with_hashchain(

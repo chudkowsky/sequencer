@@ -154,10 +154,8 @@ impl TryFromOutputIter for OutputIterParsedData {
     ) -> Result<Self, OsOutputError> {
         let initial_root = wrap_missing(output_iter.next(), "initial_root")?;
         let final_root = wrap_missing(output_iter.next(), "final_root")?;
-        let prev_block_number =
-            BlockNumber(wrap_missing_as(output_iter.next(), "prev_block_number")?);
-        let new_block_number =
-            BlockNumber(wrap_missing_as(output_iter.next(), "new_block_number")?);
+        let prev_block_number = wrap_missing_as(output_iter.next(), "prev_block_number")?;
+        let new_block_number = wrap_missing_as(output_iter.next(), "new_block_number")?;
         let prev_block_hash = wrap_missing(output_iter.next(), "prev_block_hash")?;
         let new_block_hash = wrap_missing(output_iter.next(), "new_block_hash")?;
         let os_program_hash = wrap_missing(output_iter.next(), "os_program_hash")?;
@@ -229,9 +227,9 @@ pub struct CommonOsOutput {
     // The root after.
     pub final_root: StarkHash,
     // The previous block number.
-    pub prev_block_number: BlockNumber,
+    pub prev_block_number: Felt,
     // The new block number.
-    pub new_block_number: BlockNumber,
+    pub new_block_number: Felt,
     // The previous block hash.
     pub prev_block_hash: StarkHash,
     // The new block hash.

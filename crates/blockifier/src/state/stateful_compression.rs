@@ -138,8 +138,9 @@ pub fn compress<S: StateReader>(
     state: &S,
     alias_contract_address: ContractAddress,
 ) -> CompressionResult<StateMaps> {
+    println!("inside");
     let alias_compressor = AliasCompressor { state, alias_contract_address };
-
+    println!("After aliast creation");
     let nonces = state_diff
         .nonces
         .iter()
@@ -147,6 +148,7 @@ pub fn compress<S: StateReader>(
             Ok((alias_compressor.compress_address(contract_address)?, *nonce))
         })
         .collect::<CompressionResult<_>>()?;
+    println!("After nonce ");
     let class_hashes = state_diff
         .class_hashes
         .iter()
@@ -154,6 +156,7 @@ pub fn compress<S: StateReader>(
             Ok((alias_compressor.compress_address(contract_address)?, *class_hash))
         })
         .collect::<CompressionResult<_>>()?;
+    println!("After class hash");
     let storage = state_diff
         .storage
         .iter()
@@ -167,7 +170,7 @@ pub fn compress<S: StateReader>(
             ))
         })
         .collect::<CompressionResult<_>>()?;
-
+    println!("After storage");
     Ok(StateMaps { nonces, class_hashes, storage, ..state_diff.clone() })
 }
 

@@ -50,8 +50,7 @@ pub fn allocate_aliases_in_storage<S: StateReader>(
     state: &mut CachedState<S>,
     alias_contract_address: ContractAddress,
 ) -> StateResult<()> {
-    let state_diff = state.to_state_diff()?.state_maps;
-    println!("State diff: {:?}", state_diff);
+    let state_diff = state.cache.clone().into_inner().initial_reads;
     // Collect the contract addresses and the storage keys that need aliases.
     let contract_addresses: BTreeSet<ContractAddress> =
         state_diff.get_contract_addresses().into_iter().collect();

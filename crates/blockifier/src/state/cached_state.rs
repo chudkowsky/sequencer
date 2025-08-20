@@ -376,10 +376,10 @@ impl StateMaps {
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct StateCache {
     // Reader's cached information; initial values, read before any write operation (per cell).
-    pub(crate) initial_reads: StateMaps,
+    pub initial_reads: StateMaps,
 
     // Writer's cached information.
-    pub(crate) writes: StateMaps,
+    pub writes: StateMaps,
 }
 
 impl StateCache {

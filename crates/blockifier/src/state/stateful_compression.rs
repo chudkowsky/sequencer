@@ -51,12 +51,12 @@ pub fn allocate_aliases_in_storage<S: StateReader>(
     alias_contract_address: ContractAddress,
 ) -> StateResult<()> {
     let state_diff = state.to_state_diff()?.state_maps;
-
+    println!("State diff: {:?}", state_diff);
     // Collect the contract addresses and the storage keys that need aliases.
     let contract_addresses: BTreeSet<ContractAddress> =
         state_diff.get_contract_addresses().into_iter().collect();
     println!("Contract addresses: {:?}", contract_addresses);
-    
+
     let mut contract_address_to_sorted_storage_keys = HashMap::new();
     for (contract_address, storage_key) in state_diff.storage.keys() {
         if contract_address > &MAX_NON_COMPRESSED_CONTRACT_ADDRESS {

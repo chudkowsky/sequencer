@@ -37,7 +37,6 @@ cairo-vm = { workspace = true, features = [
 derive_more.workspace = true
 indexmap.workspace = true
 indoc.workspace = true
-lambdaworks-math.workspace = true
 log.workspace = true
 num-bigint.workspace = true
 num-integer.workspace = true
@@ -67,6 +66,7 @@ blockifier = { workspace = true, features = ["testing"] }
 blockifier_test_utils.workspace = true
 ethnum.workspace = true
 expect-test.workspace = true
+itertools.workspace = true
 rstest.workspace = true
 starknet_committer.workspace = true
 starknet_patricia = { workspace = true, features = ["testing"] }

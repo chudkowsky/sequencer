@@ -12,6 +12,7 @@ use blockifier::blockifier::stateful_validator::{
     StatefulValidatorError as BlockifierStatefulValidatorError,
 };
 use blockifier::context::ChainInfo;
+use blockifier::state::errors::StateError;
 use blockifier::test_utils::contracts::FeatureContractTrait;
 use blockifier::transaction::errors::{TransactionFeeError, TransactionPreValidationError};
 use blockifier::transaction::test_utils::calculate_class_info_for_testing;
@@ -22,7 +23,6 @@ use mempool_test_utils::starknet_api_test_utils::{
     VALID_L1_GAS_MAX_AMOUNT,
     VALID_L1_GAS_MAX_PRICE_PER_UNIT,
 };
-use mockall::predicate::eq;
 use num_bigint::BigUint;
 use pretty_assertions::assert_eq;
 use rstest::rstest;
@@ -49,6 +49,49 @@ use crate::stateful_transaction_validator::{
     StatefulTransactionValidatorFactoryTrait,
     StatefulTransactionValidatorTrait,
 };
+
+#[tokio::test]
+async fn test_get_nonce_fail_on_extract_state_nonce_and_run_validations() {
+    let mut mock_blockifier_validator = MockBlockifierStatefulValidatorTrait::new();
+    mock_blockifier_validator.expect_get_nonce().return_once(move |_| {
+        Err(BlockifierStatefulValidatorError::StateError(StateError::StateReadError(
+            "TestError".to_string(),
+        )))
+    });
+
+    let mut mock_mempool_client = MockMempoolClient::new();
+    mock_mempool_client.expect_account_tx_in_pool_or_recent_block().returning(|_| {
+        // The mempool does not have any transactions from the sender.
+        Ok(false)
+    });
+    let mempool_client = Arc::new(mock_mempool_client);
+    let runtime = tokio::runtime::Handle::current();
+
+    let mut stateful_validator = StatefulTransactionValidator {
+        config: StatefulTransactionValidatorConfig::default(),
+        blockifier_stateful_tx_validator: mock_blockifier_validator,
+    };
+
+    let executable_tx = create_executable_invoke_tx(CairoVersion::Cairo1(RunnableCairo1::Casm));
+    let result = tokio::task::spawn_blocking(move || {
+        stateful_validator.extract_state_nonce_and_run_validations(
+            &executable_tx,
+            mempool_client,
+            runtime,
+        )
+    })
+    .await
+    .unwrap();
+    assert_eq!(
+        result,
+        Err(StarknetError {
+            code: StarknetErrorCode::UnknownErrorCode(
+                "StarknetErrorCode.InternalError".to_string()
+            ),
+            message: "Internal error".to_string(),
+        })
+    );
+}
 
 // TODO(Arni): consider testing declare and deploy account.
 #[rstest]
@@ -117,6 +160,7 @@ async fn test_extract_state_nonce_and_run_validations(
 fn test_instantiate_validator() {
     let stateful_validator_factory = StatefulTransactionValidatorFactory {
         config: StatefulTransactionValidatorConfig::default(),
+        chain_info: ChainInfo::create_for_testing(),
     };
     let state_reader_factory =
         local_test_state_reader_factory(CairoVersion::Cairo1(RunnableCairo1::Casm), false);
@@ -129,17 +173,7 @@ fn test_instantiate_validator() {
         .expect_get_state_reader_from_latest_block()
         .return_once(|| latest_state_reader);
 
-    // Make sure stateful_validator uses the latest block in the following calls to the
-    // state_reader.
-    let latest_block = state_reader_factory.state_reader.block_info.block_number;
-    let state_reader = state_reader_factory.get_state_reader(latest_block);
-    mock_state_reader_factory
-        .expect_get_state_reader()
-        .with(eq(latest_block))
-        .return_once(move |_| state_reader);
-
-    let validator = stateful_validator_factory
-        .instantiate_validator(&mock_state_reader_factory, &ChainInfo::create_for_testing());
+    let validator = stateful_validator_factory.instantiate_validator(&mock_state_reader_factory);
     assert!(validator.is_ok());
 }
 

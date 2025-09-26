@@ -30,6 +30,10 @@ from starkware.starknet.core.os.contract_class.blake_compiled_class_hash import 
     compiled_class_hash as blake_compiled_class_hash,
 )
 
+from starkware.starknet.core.os.contract_class.poseidon_compiled_class_hash import (
+    compiled_class_hash as poseidon_compiled_class_hash,
+)
+
 // Checks that the list of selectors is sorted.
 func validate_entry_points{range_check_ptr}(
     n_entry_points: felt, entry_points: CompiledClassEntryPoint*
@@ -136,7 +140,7 @@ func validate_compiled_class_facts{poseidon_ptr: PoseidonBuiltin*, range_check_p
     // Calculate the compiled class hash.
     // This hint enters a new scope that contains the bytecode segment structure of the class.
     %{ EnterScopeWithBytecodeSegmentStructure %}
-    let (hash) = blake_compiled_class_hash(compiled_class, full_contract=FALSE);
+    let (hash) = poseidon_compiled_class_hash(compiled_class, full_contract=FALSE);
     %{
         vm_exit_scope()
 

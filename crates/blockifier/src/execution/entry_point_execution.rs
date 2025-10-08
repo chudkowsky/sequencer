@@ -101,6 +101,7 @@ pub fn execute_entry_point_call(
     state: &mut dyn State,
     context: &mut EntryPointExecutionContext,
 ) -> EntryPointExecutionResult<CallInfo> {
+    log::info!("execute_entry_point_call starting");
     let tracked_resource =
         *context.tracked_resource_stack.last().expect("Unexpected empty tracked resource.");
     // Extract information from the context, as it will be passed as a mutable reference.
@@ -112,6 +113,7 @@ pub fn execute_entry_point_call(
         entry_point,
         program_extra_data_length,
     } = initialize_execution_context(call, &compiled_class, state, context)?;
+    log::info!("passed the initialize execution context");
 
     let args = prepare_call_arguments(
         &syscall_handler.base.call,
@@ -127,6 +129,7 @@ pub fn execute_entry_point_call(
     // Execute.
     let bytecode_length = compiled_class.bytecode_length();
     let program_segment_size = bytecode_length + program_extra_data_length;
+    log::info!("just before run_entry_point in the execute_entry_point_call");
     run_entry_point(&mut runner, &mut syscall_handler, entry_point, args, program_segment_size)?;
 
     Ok(finalize_execution(
@@ -274,6 +277,7 @@ pub fn prepare_call_arguments(
     // Pre-charge entry point's initial budget to ensure sufficient gas for executing a minimal
     // entry point code. When redepositing is used, the entry point is aware of this pre-charge
     // and adjusts the gas counter accordingly if a smaller amount of gas is required.
+    log::info!("checking for funds in the entry_point_initla_budget");
     let call_initial_gas = call
         .initial_gas
         .checked_sub(entry_point_initial_budget)

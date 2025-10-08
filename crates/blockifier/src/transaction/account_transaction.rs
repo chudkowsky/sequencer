@@ -254,13 +254,13 @@ impl AccountTransaction {
     ) -> TransactionPreValidationResult<()> {
         let tx_info = &tx_context.tx_info;
         Self::handle_nonce(state, tx_info, self.execution_flags.strict_nonce_check)?;
-
+        log::info!("the charge fee here is: {:?}", self.execution_flags.charge_fee);
         if self.execution_flags.charge_fee {
             self.check_fee_bounds(tx_context)?;
 
             verify_can_pay_committed_bounds(state, tx_context).map_err(Box::new)?;
         }
-
+        log::info!("pre validation passes");
         Ok(())
     }
 
@@ -521,8 +521,10 @@ impl AccountTransaction {
         context: &mut EntryPointExecutionContext,
         remaining_gas: &mut GasCounter,
     ) -> TransactionExecutionResult<Option<CallInfo>> {
+        log::info!("inside the run_execute");
         let remaining_execution_gas = &mut remaining_gas
             .limit_usage(context.tx_context.sierra_gas_limit(&context.execution_mode));
+        log::info!("got the execution_gas in the run_execute");
         Ok(match &self.tx {
             Transaction::Declare(tx) => tx.run_execute(state, context, remaining_execution_gas),
             Transaction::DeployAccount(tx) => {
@@ -558,6 +560,7 @@ impl AccountTransaction {
                         .limit_usage(tx_context.sierra_gas_limit(&ExecutionMode::Validate)),
                 )),
             );
+            log::info!("created the new execution context in the run_non_revertible");
             execute_call_info = self.run_execute(state, &mut execution_context, remaining_gas)?;
             validate_call_info = self.validate_tx(state, tx_context.clone(), remaining_gas)?;
         } else {
@@ -579,6 +582,7 @@ impl AccountTransaction {
                     }
                 }
             }
+            log::info!("apart from the deployAccount, here in the run_non_revertible");
             validate_call_info = self.validate_tx(state, tx_context.clone(), remaining_gas)?;
             let mut execution_context = EntryPointExecutionContext::new_invoke(
                 tx_context.clone(),
@@ -777,7 +781,9 @@ impl AccountTransaction {
         remaining_gas: &mut GasCounter,
         tx_context: Arc<TransactionContext>,
     ) -> TransactionExecutionResult<ValidateExecuteCallInfo> {
+        log::info!("inside the run_or_revert");
         if self.is_non_revertible(&tx_context.tx_info) {
+            log::info!("now running the non_revertible");
             return self.run_non_revertible(state, tx_context, remaining_gas);
         }
 
@@ -825,7 +831,8 @@ impl<U: UpdatableState> ExecutableTransaction<U> for AccountTransaction {
         self.perform_pre_validation_stage(state, &tx_context).map_err(Box::new)?;
 
         // Run validation and execution.
-        let initial_gas = tx_context.initial_sierra_gas();
+        let initial_gas = if self.execution_flags.charge_fee { tx_context.initial_sierra_gas() } else {GasAmount::default()};
+        log::info!("initial gas here is: {:?}", initial_gas);
         let ValidateExecuteCallInfo {
             validate_call_info,
             execute_call_info,
@@ -838,6 +845,7 @@ impl<U: UpdatableState> ExecutableTransaction<U> for AccountTransaction {
                     gas: total_gas,
                 },
         } = self.run_or_revert(state, &mut GasCounter::new(initial_gas), tx_context.clone())?;
+        log::info!("validate execute call info passed");
         let fee_transfer_call_info = Self::handle_fee(
             state,
             tx_context,
@@ -845,6 +853,8 @@ impl<U: UpdatableState> ExecutableTransaction<U> for AccountTransaction {
             self.execution_flags.charge_fee,
             concurrency_mode,
         )?;
+
+        log::info!("fee transfer call info passed");
 
         let tx_execution_info = TransactionExecutionInfo {
             validate_call_info,
@@ -906,18 +916,22 @@ impl ValidatableTransaction for AccountTransaction {
         tx_context: Arc<TransactionContext>,
         remaining_gas: &mut GasCounter,
     ) -> TransactionExecutionResult<Option<CallInfo>> {
+        log::info!("starting the validation");
         if !self.execution_flags.validate {
             return Ok(None);
         }
+        log::info!("now checking the fees");
         let remaining_validation_gas = &mut remaining_gas.limit_usage(
             tx_context.block_context.versioned_constants.os_constants.validate_max_sierra_gas,
         );
+        log::info!("got the validation gas");
         let limit_steps_by_resources = self.execution_flags.charge_fee;
         let mut context = EntryPointExecutionContext::new_validate(
             tx_context,
             limit_steps_by_resources,
             SierraGasRevertTracker::new(GasAmount(*remaining_validation_gas)),
         );
+        log::info!("context for the validate_tx has been created!");
         let tx_info = &context.tx_context.tx_info;
         if tx_info.is_v0() {
             return Ok(None);
@@ -937,6 +951,7 @@ impl ValidatableTransaction for AccountTransaction {
             call_type: CallType::Call,
             initial_gas: *remaining_validation_gas,
         };
+        log::info!("validate call created");
 
         // Note that we allow a revert here and we handle it bellow to get a better error message.
         let validate_call_info = validate_call
@@ -947,7 +962,7 @@ impl ValidatableTransaction for AccountTransaction {
                 storage_address,
                 selector: validate_selector,
             })?;
-
+        log::info!("validate call info done");
         // Validate return data.
         let compiled_class = state.get_compiled_class(class_hash)?;
         if is_cairo1(&compiled_class) {
@@ -974,6 +989,7 @@ impl ValidatableTransaction for AccountTransaction {
                 validate_call_info.execution.retdata,
             ));
         }
+        log::info!("post if condition in the validate_tx");
         remaining_gas.subtract_used_gas(&validate_call_info);
         Ok(Some(validate_call_info))
     }

@@ -229,6 +229,7 @@ impl<S: State> Executable<S> for DeployAccountTransaction {
         context: &mut EntryPointExecutionContext,
         remaining_gas: &mut u64,
     ) -> TransactionExecutionResult<Option<CallInfo>> {
+        log::info!("run_execute in the deploy account");
         let class_hash = self.class_hash();
         let constructor_context = ConstructorContext {
             class_hash,
@@ -236,6 +237,7 @@ impl<S: State> Executable<S> for DeployAccountTransaction {
             storage_address: self.contract_address(),
             caller_address: ContractAddress::default(),
         };
+        log::info!("run_execute in deploy account, starting the execute deployment");
         let call_info = execute_deployment(
             state,
             context,
@@ -243,6 +245,7 @@ impl<S: State> Executable<S> for DeployAccountTransaction {
             self.constructor_calldata(),
             remaining_gas,
         )?;
+        log::info!("run execute for deploy account successful");
 
         Ok(Some(call_info))
     }

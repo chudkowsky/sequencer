@@ -831,7 +831,10 @@ impl<U: UpdatableState> ExecutableTransaction<U> for AccountTransaction {
         self.perform_pre_validation_stage(state, &tx_context).map_err(Box::new)?;
 
         // Run validation and execution.
-        let initial_gas = if self.execution_flags.charge_fee { tx_context.initial_sierra_gas() } else {GasAmount::default()};
+        let mut initial_gas = tx_context.initial_sierra_gas();
+        if !self.execution_flags.charge_fee {
+            initial_gas = tx_context.block_context.versioned_constants.initial_gas_no_user_l2_bound();
+        };
         log::info!("initial gas here is: {:?}", initial_gas);
         let ValidateExecuteCallInfo {
             validate_call_info,

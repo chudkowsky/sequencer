@@ -277,7 +277,7 @@ pub fn prepare_call_arguments(
     // Pre-charge entry point's initial budget to ensure sufficient gas for executing a minimal
     // entry point code. When redepositing is used, the entry point is aware of this pre-charge
     // and adjusts the gas counter accordingly if a smaller amount of gas is required.
-    log::info!("checking for funds in the entry_point_initla_budget");
+    log::info!("checking for funds in the entry_point_initial_budget");
     let call_initial_gas = call
         .initial_gas
         .checked_sub(entry_point_initial_budget)

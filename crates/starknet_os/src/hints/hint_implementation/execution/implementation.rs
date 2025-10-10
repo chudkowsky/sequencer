@@ -633,6 +633,7 @@ pub(crate) fn check_execution<S: StateReader>(
         .syscall_hint_processor
         .validate_and_discard_syscall_ptr(&syscall_ptr_end)?;
     current_execution_helper.tx_execution_iter.get_mut_tx_execution_info_ref()?.exit_call_info()?;
+    log::info!("execution have passed btw");
     Ok(())
 }
 

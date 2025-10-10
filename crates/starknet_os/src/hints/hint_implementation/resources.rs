@@ -28,15 +28,18 @@ pub(crate) fn debug_expected_initial_gas<S: StateReader>(
 ) -> OsHintResult {
     let current_execution_helper =
         hint_processor.execution_helpers_manager.get_current_execution_helper()?;
+    log::info!("got the current execution helper");
     if current_execution_helper.os_logger.debug {
         let call_info = current_execution_helper
             .tx_execution_iter
             .get_tx_execution_info_ref()?
             .get_call_info_tracker()?
             .call_info;
+        log::info!("call info got");
         let expected_initial_gas = Felt::from(call_info.call.initial_gas);
         let call_initial_gas =
             get_integer_from_var_name(Ids::InnerRemainingGas.into(), vm, ids_data, ap_tracking)?;
+        log::info!("expected gas is: {:?} and final is: {:?}", expected_initial_gas, call_initial_gas);
         if expected_initial_gas != call_initial_gas {
             return Err(OsHintError::AssertionFailed {
                 message: format!(
@@ -46,6 +49,7 @@ pub(crate) fn debug_expected_initial_gas<S: StateReader>(
             });
         }
     }
+    log::info!("debug_expected_initial_gas solved successfully");
     Ok(())
 }
 

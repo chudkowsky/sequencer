@@ -1,9 +1,8 @@
-use blake2s::Blake2Felt252;
 use blockifier::state::state_api::StateReader;
 use indoc::indoc;
 #[cfg(any(test, feature = "testing"))]
 use serde::Serialize;
-use starknet_types_core::hash::Poseidon;
+use starknet_types_core::hash::{Blake2Felt252, Poseidon};
 #[cfg(any(test, feature = "testing"))]
 use strum::IntoEnumIterator;
 
@@ -206,7 +205,7 @@ use crate::hints::hint_implementation::stateful_compression::implementation::{
     assert_key_big_enough_for_alias,
     contract_address_le_max_for_compression,
     enter_scope_with_aliases,
-    get_class_hash_and_compiled_class_hash_v2,
+    get_class_hash_and_compiled_class_fact,
     guess_aliases_contract_storage_ptr,
     guess_contract_addr_storage_ptr,
     initialize_alias_counter,
@@ -1156,9 +1155,9 @@ define_hint_enum!(
         "memory[fp + 0] = to_felt_or_relocatable(aliases.read(key=ids.key))"
     ),
     (
-        GetClassHashAndCompiledClassHashV2,
-        get_class_hash_and_compiled_class_hash_v2,
-        "GetClassHashAndCompiledClassHashV2"
+        GetClassHashAndCompiledClassFact,
+        get_class_hash_and_compiled_class_fact,
+        "GetClassHashAndCompiledClassFact"
     ),
     (
         WriteNextAliasFromKey,
@@ -1852,7 +1851,7 @@ block_input = next(block_input_iterator)
     (
         GetPublicKeys,
         get_public_keys,
-        "fill_public_keys_array(os_hints['public_keys'], public_keys, n_keys)"
+        "fill_public_keys_array(os_hints['public_keys'], public_keys, n_public_keys)"
     ),
 );
 
@@ -1934,12 +1933,10 @@ if da_path is not None:
         GetPublicKeysFromAggregatorInput,
         get_public_keys_from_aggregator_input,
         indoc! {r#"
-    public_keys = program_input["public_keys"] if program_input["public_keys"] is not None else []
-    if len(public_keys) == 0:
-        ids.public_keys = 0
-    else:
+        public_keys = program_input["public_keys"] if program_input["public_keys"] is not None else []
         ids.public_keys = segments.gen_arg(public_keys)
-    ids.n_keys = len(public_keys)"#
+        ids.n_public_keys = len(public_keys)"#
+
         }
     ),
 );

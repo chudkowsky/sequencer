@@ -26,7 +26,7 @@ use apollo_node_config::component_execution_config::{
     ActiveComponentExecutionMode,
     ReactiveComponentExecutionMode,
 };
-use apollo_node_config::node_config::SequencerNodeConfig;
+use apollo_node_config::node_config::{NodeDynamicConfig, SequencerNodeConfig};
 use apollo_node_config::version::VERSION_FULL;
 use apollo_signature_manager::{create_signature_manager, SignatureManager};
 use apollo_state_sync::runner::StateSyncRunner;
@@ -133,11 +133,16 @@ pub async fn create_node_components(
         ReactiveComponentExecutionMode::LocalExecutionWithRemoteDisabled => {
             let config_manager_config =
                 config.config_manager_config.as_ref().expect("Config Manager config should be set");
-            let config_manger = ConfigManager::new(config_manager_config.clone());
+            let config_manger =
+                ConfigManager::new(config_manager_config.clone(), NodeDynamicConfig::from(config));
             let config_manager_client = clients
                 .get_config_manager_shared_client()
                 .expect("Config Manager shared client should be available");
-            let config_manager_runner = ConfigManagerRunner::new(config_manager_client, cli_args);
+            let config_manager_runner = ConfigManagerRunner::new(
+                config_manager_config.clone(),
+                config_manager_client,
+                cli_args,
+            );
             (Some(config_manger), Some(config_manager_runner))
         }
 
@@ -192,6 +197,7 @@ pub async fn create_node_components(
             None
         }
     };
+
     let gateway = match config.components.gateway.execution_mode {
         ReactiveComponentExecutionMode::LocalExecutionWithRemoteDisabled
         | ReactiveComponentExecutionMode::LocalExecutionWithRemoteEnabled => {
@@ -215,6 +221,7 @@ pub async fn create_node_components(
         }
         ReactiveComponentExecutionMode::Disabled | ReactiveComponentExecutionMode::Remote => None,
     };
+
     let http_server = match config.components.http_server.execution_mode {
         ActiveComponentExecutionMode::Enabled => {
             let http_server_config =
@@ -502,6 +509,7 @@ pub async fn create_node_components(
             None
         }
     };
+
     let l1_gas_price_scraper = match config.components.l1_gas_price_scraper.execution_mode {
         ActiveComponentExecutionMode::Enabled => {
             let base_layer_config =

@@ -6,27 +6,97 @@ from starkware.cairo.common.registers import get_fp_and_pc
 from starkware.starknet.core.os.naive_blake import (
     calc_blake_hash,
     naive_encode_felt252s_to_u32s,
-    u256_to_felt,
+    felt_from_le_u32s,
     create_initial_state_for_blake2s,
     blake_with_opcode_for_single_16_length_word,
 )
 from starkware.cairo.common.cairo_blake2s.blake2s import blake_with_opcode
 from starkware.cairo.common.alloc import alloc
 
-// Validates that the private keys are within the range [1, StarkCurve.ORDER - 1] as required by
-// the Diffie-Hellman elliptic curve encryption scheme.
-func validate_private_keys{range_check_ptr}(n_keys: felt, sn_private_keys: felt*) {
+// Encryption for StarkNet committee members — Overview
+//
+// Prerequisites:
+//  - Each committee member has a public key (elliptic curve point on StarkCurve)
+//
+// Part 1: Generate StarkNet keys for each committee member
+// - An hint generates a symmetric_key and sn_private_keys by hashing the compressed state diff.
+// - The private keys are validated to be in range [1, StarkCurve.ORDER - 1].
+// - Public keys are computed from the private keys and output to encrypted_dst.
+//
+// Part 2: Share one symmetric_key with multiple committee members
+// - For each committee member, derive a shared secret from their public key
+//   and the corresponding StarkNet private key.
+//   (Shared secret generation uses Elliptic-Curve Diffie–Hellman (ECDH) on StarkCurve).
+// - Hash the shared secret's x-coordinate using BLAKE2s to get a mask, then output to encrypted_dst
+//   encrypted_symmetric_key[i] = symmetric_key + mask[i].
+//   (A committee member can recompute the same mask with their private key to recover symmetric_key.)
+//
+// Part 3: Encrypt a list of felts with the symmetric_key
+// - For index i, compute mask_i = BLAKE2s(encode([symmetric_key, i])).
+// - Output to encrypted_dst ciphertext[i] = plaintext[i] + mask_i (modulo the field prime).
+//
+// Output structure:
+// encrypted = [n_keys, sn_public_keys, encrypted_symmetric_keys, ciphertext]
+//
+// Notes:
+// - Private keys must be in [1, StarkCurve.ORDER - 1].
+// - Public keys are provided by x-coordinate; y is recovered as needed.
+// - Field addition is used for masking; this provides confidentiality only.
+// - Reference: Elliptic-Curve Diffie–Hellman (ECDH) https://en.wikipedia.org/wiki/Elliptic-curve_Diffie%E2%80%93Hellman
+func encrypt_state_diff{range_check_ptr, ec_op_ptr: EcOpBuiltin*}(
+    compressed_start: felt*, compressed_dst: felt*, n_keys: felt, public_keys: felt*
+) -> (encrypted_start: felt*, encrypted_dst: felt*) {
+    alloc_locals;
+
+    // Generate random symmetric key and random starknet private keys.
+    local symmetric_key: felt;
+    local sn_private_keys: felt*;
+    %{ generate_keys_from_hash(ids.compressed_start, ids.compressed_dst, ids.n_keys) %}
+    validate_sn_private_keys(n_keys=n_keys, sn_private_keys=sn_private_keys);
+
+    local encrypted_start: felt*;
+    %{
+        if use_kzg_da:
+            ids.encrypted_start = segments.add()
+        else:
+            # Assign a temporary segment, to be relocated into the output segment.
+            ids.encrypted_start = segments.add_temp_segment()
+    %}
+
+    let encrypted_dst = encrypted_start;
+    assert encrypted_dst[0] = n_keys;
+    let encrypted_dst = &encrypted_dst[1];
+
+    with encrypted_dst {
+        output_sn_public_keys(n_keys=n_keys, sn_private_keys=sn_private_keys);
+        output_encrypted_symmetric_key(
+            n_keys=n_keys,
+            public_keys=public_keys,
+            sn_private_keys=sn_private_keys,
+            symmetric_key=symmetric_key,
+        );
+        encrypt(data_start=compressed_start, data_end=compressed_dst, symmetric_key=symmetric_key);
+    }
+
+    return (encrypted_start=encrypted_start, encrypted_dst=encrypted_dst);
+}
+
+// Validates that the private keys are within the range [1, StarkCurve.ORDER - 1].
+func validate_sn_private_keys{range_check_ptr}(n_keys: felt, sn_private_keys: felt*) {
     if (n_keys == 0) {
         return ();
     }
     assert_not_zero(sn_private_keys[0]);
     assert_le_felt(sn_private_keys[0], StarkCurve.ORDER - 1);
 
-    return validate_private_keys(n_keys=n_keys - 1, sn_private_keys=sn_private_keys + 1);
+    return validate_sn_private_keys(n_keys=n_keys - 1, sn_private_keys=&sn_private_keys[1]);
 }
 
-// Computes the public keys from the private keys by multiplying by the EC group generator.
-func compute_public_keys{range_check_ptr, ec_op_ptr: EcOpBuiltin*, encrypted_dst: felt*}(
+// Compute public keys from private keys.
+// Step-by-step for each key:
+// 1) Multiply the private key by the curve generator to get the public point (x, y).
+// 2) Write x into `encrypted_dst` (y can be recovered later when needed).
+func output_sn_public_keys{range_check_ptr, ec_op_ptr: EcOpBuiltin*, encrypted_dst: felt*}(
     n_keys: felt, sn_private_keys: felt*
 ) {
     if (n_keys == 0) {
@@ -37,10 +107,16 @@ func compute_public_keys{range_check_ptr, ec_op_ptr: EcOpBuiltin*, encrypted_dst
     );
     assert encrypted_dst[0] = sn_public_key.x;
     let encrypted_dst = &encrypted_dst[1];
-    return compute_public_keys(n_keys=n_keys - 1, sn_private_keys=&sn_private_keys[1]);
+    return output_sn_public_keys(n_keys=n_keys - 1, sn_private_keys=&sn_private_keys[1]);
 }
 
-func encrypt_symmetric_key{range_check_ptr, ec_op_ptr: EcOpBuiltin*, encrypted_dst: felt*}(
+// Encrypt the same symmetric_key for many recipients.
+// Step-by-step for each recipient:
+// 1) Recover the full public point (x, y) from the given x.
+// 2) Compute a shared secret point = our private key * recipient public point (Diffie–Hellman).
+// 3) Hash the x-coordinate of the shared point to get a mask.
+// 4) encrypted symmetric key = symmetric_key + hash(shared_secret.x)`.
+func output_encrypted_symmetric_key{range_check_ptr, ec_op_ptr: EcOpBuiltin*, encrypted_dst: felt*}(
     n_keys: felt, public_keys: felt*, sn_private_keys: felt*, symmetric_key: felt
 ) {
     if (n_keys == 0) {
@@ -53,13 +129,12 @@ func encrypt_symmetric_key{range_check_ptr, ec_op_ptr: EcOpBuiltin*, encrypted_d
 
     let (__fp__, _) = get_fp_and_pc();
     let (local shared_secret) = ec_mul(m=sn_private_keys[0], p=public_key);
-    // TODO(Avi, 10/9/2025): Switch to naive encoding once the function is available.
     let (hash) = calc_blake_hash(data_len=1, data=&shared_secret.x);
 
     assert encrypted_dst[0] = symmetric_key + hash;
     let encrypted_dst = &encrypted_dst[1];
 
-    return encrypt_symmetric_key(
+    return output_encrypted_symmetric_key(
         n_keys=n_keys - 1,
         public_keys=&public_keys[1],
         sn_private_keys=&sn_private_keys[1],
@@ -67,6 +142,10 @@ func encrypt_symmetric_key{range_check_ptr, ec_op_ptr: EcOpBuiltin*, encrypted_d
     );
 }
 
+// Encrypt a list of numbers (felts) using symmetric_key into encrypted_dst.
+// Step-by-step for item i:
+// 1) mask = Hash [encoded_symmetric_key, i] .
+// 2) ciphertext[i] = plaintext[i] + mask.
 func encrypt{range_check_ptr, encrypted_dst: felt*}(
     data_start: felt*, data_end: felt*, symmetric_key: felt
 ) {
@@ -93,7 +172,8 @@ func encrypt{range_check_ptr, encrypted_dst: felt*}(
     return ();
 }
 
-// A helper for encrypt.
+// Helper for `encrypt` that processes one element at a time.
+// Stops when we reach `data_end`.
 func encrypt_inner{range_check_ptr, encrypted_dst: felt*}(
     data_start: felt*,
     data_end: felt*,
@@ -117,21 +197,22 @@ func encrypt_inner{range_check_ptr, encrypted_dst: felt*}(
     assert blake_output[6] = encoded_symmetric_key[6];
     assert blake_output[7] = encoded_symmetric_key[7];
     let blake_output = &blake_output[8];
-    // Write encoded index to blake output - since index is small, manually encode as [0, 0, 0, 0, 0, 0, 0, index].
-    assert blake_output[0] = 0;
+    // Write encoded index to blake output - since index is small,
+    // manually encode in little-endian notion as [index, 0, 0, 0, 0, 0, 0, 0].
+    assert blake_output[0] = index;
     assert blake_output[1] = 0;
     assert blake_output[2] = 0;
     assert blake_output[3] = 0;
     assert blake_output[4] = 0;
     assert blake_output[5] = 0;
     assert blake_output[6] = 0;
-    assert blake_output[7] = index;
+    assert blake_output[7] = 0;
     let blake_output = &blake_output[8];
     // Calculate blake hash modulo prime.
     blake_with_opcode_for_single_16_length_word(
         data=blake_encoding_start, out=blake_output, initial_state=initial_state
     );
-    let hash = u256_to_felt(u256=blake_output);
+    let hash = felt_from_le_u32s(u32s=blake_output);
     let blake_output = &blake_output[8];
 
     // Encrypt the current element.

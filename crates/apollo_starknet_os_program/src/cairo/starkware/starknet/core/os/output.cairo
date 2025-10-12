@@ -23,10 +23,11 @@ from starkware.starknet.core.os.state.output import (
 )
 from starkware.starknet.core.os.state.state import SquashedOsStateUpdate
 from starkware.starknet.core.os.encrypt import (
-    validate_private_keys,
-    compute_public_keys,
-    encrypt_symmetric_key,
+    validate_sn_private_keys,
+    output_sn_public_keys,
+    output_encrypted_symmetric_key,
     encrypt,
+    encrypt_state_diff,
 )
 
 // Represents the output of the OS.
@@ -84,7 +85,7 @@ struct OsCarriedOutputs {
 
 func serialize_os_output{
     range_check_ptr, ec_op_ptr: EcOpBuiltin*, poseidon_ptr: PoseidonBuiltin*, output_ptr: felt*
-}(os_output: OsOutput*, replace_keys_with_aliases: felt, n_keys: felt, public_keys: felt*) {
+}(os_output: OsOutput*, replace_keys_with_aliases: felt, n_public_keys: felt, public_keys: felt*) {
     alloc_locals;
 
     local use_kzg_da = os_output.header.use_kzg_da;
@@ -127,7 +128,7 @@ func serialize_os_output{
         state_updates_start=state_updates_start,
         state_updates_end=state_updates_ptr,
         compress_state_updates=compress_state_updates,
-        n_keys=n_keys,
+        n_keys=n_public_keys,
         public_keys=public_keys,
     );
 
@@ -270,35 +271,12 @@ func process_data_availability{range_check_ptr, ec_op_ptr: EcOpBuiltin*}(
     }
 
     // Encrypt the compressed state updates.
-    // Generate random symmetric key and random starknet private keys.
-    local symmetric_key: felt;
-    local sn_private_keys: felt*;
-    %{ generate_keys_from_hash(ids.compressed_start, ids.compressed_dst, ids.n_keys) %}
-    validate_private_keys(n_keys=n_keys, sn_private_keys=sn_private_keys);
-
-    local encrypted_start: felt*;
-    %{
-        if use_kzg_da:
-            ids.encrypted_start = segments.add()
-        else:
-            # Assign a temporary segment, to be relocated into the output segment.
-            ids.encrypted_start = segments.add_temp_segment()
-    %}
-
-    let encrypted_dst = encrypted_start;
-    assert encrypted_dst[0] = n_keys;
-    let encrypted_dst = &encrypted_dst[1];
-
-    with encrypted_dst {
-        compute_public_keys(n_keys=n_keys, sn_private_keys=sn_private_keys);
-        encrypt_symmetric_key(
-            n_keys=n_keys,
-            public_keys=public_keys,
-            sn_private_keys=sn_private_keys,
-            symmetric_key=symmetric_key,
-        );
-        encrypt(data_start=compressed_start, data_end=compressed_dst, symmetric_key=symmetric_key);
-    }
+    let (encrypted_start, encrypted_dst) = encrypt_state_diff(
+        compressed_start=compressed_start,
+        compressed_dst=compressed_dst,
+        n_keys=n_keys,
+        public_keys=public_keys,
+    );
 
     return (da_start=encrypted_start, da_end=encrypted_dst);
 }

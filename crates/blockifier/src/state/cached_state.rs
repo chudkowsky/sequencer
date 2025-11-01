@@ -721,7 +721,7 @@ impl StateChangesKeys {
 /// class hashes are paid for separately.
 #[cfg_attr(any(feature = "testing", test), derive(Clone))]
 #[derive(Debug, Default, Eq, PartialEq)]
-pub struct AllocatedKeys(HashSet<StorageEntry>);
+pub struct AllocatedKeys(pub HashSet<StorageEntry>);
 
 impl AllocatedKeys {
     pub fn len(&self) -> usize {

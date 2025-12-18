@@ -178,7 +178,7 @@ func main{
     // TODO(Yoni, 1/1/2026): compute the block hash.
     serialize_os_output(
         os_output=final_os_output,
-        replace_keys_with_aliases=TRUE,
+        replace_keys_with_aliases=FALSE,
         n_public_keys=n_public_keys,
         public_keys=public_keys,
     );
